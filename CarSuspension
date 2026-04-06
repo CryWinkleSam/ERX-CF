@@ -1,0 +1,127 @@
+-- Car suespension script [execute after ERX]
+repeat task.wait() until _G.WindUI and _G.Tabs
+
+local WindUI = _G.WindUI
+local Tabs = _G.Tabs
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Player = game.Players.LocalPlayer
+-- script was made via GPT ignore how stupid and weird it is
+
+local sus = {
+	Enabled = false,
+	Raised = true,
+	FrontTarget = 2,
+	RearTarget = 2,
+	CurrentFront = 2,
+	CurrentRear = 2,
+	Smooth = 2.5,
+}
+
+
+local function playAirSound(vehicle, mode)
+	if not vehicle then return end
+	local sound = Instance.new("Sound")
+	sound.SoundId = (mode == "raise" and "rbxassetid://9118823106") 
+		or "rbxassetid://7768888198" 
+	sound.Volume = 1.5
+	sound.PlayOnRemove = true
+	sound.Parent = vehicle
+	sound:Destroy()
+end
+
+local function getVehicle()
+	local char = Player.Character
+	if not char then return end
+	local hum = char:FindFirstChildWhichIsA("Humanoid")
+	if not hum or not hum.SeatPart then return end
+	local seat = hum.SeatPart
+	if seat.Parent and seat.Parent:FindFirstChild("Wheels") then
+		return seat.Parent
+	end
+end
+
+local function applySuspension(vehicle, front, rear)
+	for _, v in ipairs(vehicle.Wheels:GetChildren()) do
+		pcall(function()
+			if v.Name == "FL" or v.Name == "FR" then
+				v["#SA"].Attach_SA.CFrame = CFrame.new(0, -front, 1)
+				v["#SB"].Attach_SB.CFrame = CFrame.new(0, front, -1)
+				v["#SB"].Stabilizer.D = 1000
+				v.Spring.MaxLength = front * 10
+				v.Stabilizer.D = 1000
+			elseif v.Name == "RL" or v.Name == "RR" then
+				v["#SA"].Attach_SA.CFrame = CFrame.new(0, -rear, 1)
+				v["#SB"].Attach_SB.CFrame = CFrame.new(0, rear, -1)
+				v["#SB"].Stabilizer.D = 1000
+				v.Spring.MaxLength = rear * 10
+				v.Stabilizer.D = 1000
+			end
+		end)
+	end
+end
+
+
+local function lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+Tabs.VehicleMods:Toggle({
+	Title = "Air Suspension",
+	Desc = "(Keybind: F)",
+	Value = false,
+	Callback = function(state)
+		sus.Enabled = state
+	end,
+})
+
+Tabs.VehicleMods:Slider({
+	Title = "Front Suspension",
+	Desc = "Front suspension height",
+	Value = { Min = 0.1, Max = 10, Default = 2 },
+	Callback = function(val)
+		sus.FrontTarget = tonumber(string.format("%.2f", val))
+	end,
+	Precise = true,
+})
+
+Tabs.VehicleMods:Slider({
+	Title = "Rear Suspension",
+	Desc = "Rear suspension height",
+	Value = { Min = 0.1, Max = 10, Default = 2 },
+	Callback = function(val)
+		sus.RearTarget = tonumber(string.format("%.2f", val))
+	end,
+	Precise = true,
+})
+
+UIS.InputBegan:Connect(function(input, gp)
+	if gp or not sus.Enabled then return end
+	if input.KeyCode == Enum.KeyCode.F then
+		local car = getVehicle()
+		if not car then return end
+
+		sus.Raised = not sus.Raised
+		playAirSound(car, sus.Raised and "raise" or "lower")
+
+		WindUI:Notify({
+			Title = "Air Suspension",
+			Content = sus.Raised and "Suspension raised" or "Suspension lowered",
+			Duration = 2.5,
+		})
+	end
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+	if not sus.Enabled then return end
+	local car = getVehicle()
+	if not car then return end
+
+	local targetF = sus.Raised and sus.FrontTarget or 0.1
+	local targetR = sus.Raised and sus.RearTarget or 0.1
+
+	sus.CurrentFront = lerp(sus.CurrentFront, targetF, dt * sus.Smooth)
+	sus.CurrentRear = lerp(sus.CurrentRear, targetR, dt * sus.Smooth)
+
+	applySuspension(car, sus.CurrentFront, sus.CurrentRear)
+end) -- this was made with chatgpt so js ignore how weird dis script is
