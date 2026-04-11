@@ -89,15 +89,32 @@ end
 task.spawn(checkWantedAndTrigger)
 
 
-local function is_kicked()
-	return CoreGui.RobloxPromptGui.promptOverlay:FindFirstChild("ErrorPrompt")
+local CoreGui = game:GetService("CoreGui")
+
+local function isKicked()
+	local robloxGui = CoreGui:FindFirstChild("RobloxPromptGui")
+	if not robloxGui then return false end
+
+	local overlay = robloxGui:FindFirstChild("promptOverlay")
+	if not overlay then return false end
+
+	return overlay:FindFirstChild("ErrorPrompt") ~= nil
 end
 
 task.spawn(function()
 	while task.wait(1) do
-		if is_kicked() then
-			CoreGui.RobloxPromptGui.promptOverlay:WaitForChild("ErrorPrompt"):Destroy()
-			 server_hop()
+		if isKicked() then
+			local robloxGui = CoreGui:FindFirstChild("RobloxPromptGui")
+			local overlay = robloxGui and robloxGui:FindFirstChild("promptOverlay")
+			local errorPrompt = overlay and overlay:FindFirstChild("ErrorPrompt")
+
+			if errorPrompt then
+				errorPrompt:Destroy()
+			end
+
+			if typeof(server_hop) == "function" then
+				pcall(server_hop)
+			end
 		end
 	end
 end)
