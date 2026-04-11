@@ -79,6 +79,8 @@ local function checkWantedAndTrigger()
 		warn("Wanted value:", wanted, typeof(wanted))
 
 		if wanted and wanted == 0 then
+			_G.PushNotification("Red", "Auto Hop: Waiting 12-46s to serverhop!")
+			task.wait(math.random(12, 46)) -- sry this is so ur XP isnt set to Zero
 			server_hop()
 
 			break
