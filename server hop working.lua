@@ -13,7 +13,7 @@ task.spawn(function()
 end)
 
 repeat task.wait() until _G.Functions
-
+-- THIS DOES NOT WORK BTW BEEN SEMI PATCHED U GET FLAGGED AND UR XP BECOMES 0
 
 _G.Window.TabModule.Tabs[1].Elements[3].Callback(true)
 
