@@ -3,13 +3,13 @@
                              ERX Needs to be loaded              ]]
 
 
-local env = getgenv()
+--[[local env = getgenv()
 
 if env.negro_pedra then
     return warn("Already called") 
 end
 
-env.negro_pedra = true
+env.negro_pedra = true]]
 
 -- new
 -- You can add local delay = 5 above this to change the amount of time until your kicked it will show you notification [required - I would also use this as a loadstring so its easier]
