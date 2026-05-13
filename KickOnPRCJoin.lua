@@ -24,7 +24,7 @@ Players.PlayerAdded:Connect(function(plr)
     end
 end)
 
-print("Basic auto-kick script loaded")
+
 
 -- delay option
 
