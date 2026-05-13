@@ -8,6 +8,24 @@ Connections.OnPRCStaffJoin.Event:Connect(function(Info)
     game:GetService("Players").LocalPlayer:Kick("!PRC Mod! joined you, Name: "..(Info.Player and Info.Player.Name or "?"))
 end)
 
+-- fall back lel
+
+_G.userIDs = {16222847, 23665982, 387574627, 500161865}  -- You can add more
+
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+Players.PlayerAdded:Connect(function(plr)
+    for _, id in pairs(_G.userIDs) do
+        if plr.UserId == id then
+            lp:Kick(plr.Name .. " - PRC Mod Joined!")
+            return
+        end
+    end
+end)
+
+print("Basic auto-kick script loaded")
+
 -- delay option
 
 --[[repeat task.wait() until _G.Functions
