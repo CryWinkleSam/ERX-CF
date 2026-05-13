@@ -18,7 +18,7 @@ local lp = Players.LocalPlayer
 Players.PlayerAdded:Connect(function(plr)
     for _, id in pairs(_G.userIDs) do
         if plr.UserId == id then
-            lp:Kick(plr.Name .. " - PRC Mod Joined!")
+            lp:Kick(plr.Name .. " - PRC Mod Joined!\n ERX")
             return
         end
     end
