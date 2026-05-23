@@ -3,5 +3,10 @@
                              ERX Needs to be loaded              ]]
 
 
+
+setclipboard([[
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/refs/heads/main/KickOnPRCJoin.lua"))()
+]])
+
 local Players = game:GetService("Players")
 Players.LocalPlayer:Kick("PRC AutoKick - Outdated loadstring\n\nNew loadstring copied to clipboard!")
