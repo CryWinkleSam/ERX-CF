@@ -6,6 +6,11 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/adamMasMusic/ERX/refs
 loadstring(game:HttpGet("https://raw.githubusercontent.com/adamMasMusic/ERX/refs/heads/main/structure.lua"))()
 ]]
 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/refs/heads/main/ExtraFuncs.lua"))()
+-- https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/refs/heads/main/Structure.lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/refs/heads/main/Structure.lua"))()
+
+
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local userInputService = game:GetService("UserInputService")
