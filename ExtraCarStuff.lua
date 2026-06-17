@@ -142,7 +142,7 @@ local function controlledFly(dt: number)
     local vertMove = 0
     for key, value in keys do
         if value and moves[key] then
-            if key == "Q" or key == "E" then
+            if key == "Z" or key == "C" then
                 vertMove += moves[key].Y
             else
                 planarMove += moves[key]
