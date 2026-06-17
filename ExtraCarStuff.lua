@@ -44,8 +44,8 @@ local keys = {
     A = false,
     S = false,
     D = false,
-    Q = false,
-    E = false,
+    Z = false,
+    C = false,
     LeftShift = false
 }
 local moves = {
