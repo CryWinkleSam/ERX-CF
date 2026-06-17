@@ -24,7 +24,7 @@ local Window = _G.Window
 local ConfigManager = Window.ConfigManager
 local Structure = _G.ERXStructure
 
-local CarModsConfig = ConfigManager:CreateConfig("ERXCarMods") -- sam and haz?
+local CarModsConfig = ConfigManager:CreateConfig("ERXCarMods")
 
 local carModsTab = Window:Tab({
     Title = "Car mods",
@@ -44,8 +44,8 @@ local keys = {
     A = false,
     S = false,
     D = false,
-    Z = false,
-    C = false,
+    Q = false,
+    E = false,
     LeftShift = false
 }
 local moves = {
@@ -142,7 +142,7 @@ local function controlledFly(dt: number)
     local vertMove = 0
     for key, value in keys do
         if value and moves[key] then
-            if key == "Z" or key == "C" then
+            if key == "Q" or key == "E" then
                 vertMove += moves[key].Y
             else
                 planarMove += moves[key]
