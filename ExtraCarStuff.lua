@@ -11,9 +11,20 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/r
 loadstring(game:HttpGet("https://raw.githubusercontent.com/CryWinkleSam/ERX-CF/refs/heads/main/Structure.lua"))()
 
 
+if _G.carMods then
+    _G.Functions.notif("Car mods", "already loaded", 5)
+    return
+end
+
+--loadstring(game:HttpGet("https://raw.githubusercontent.com/adamMasMusic/ERX/refs/heads/main/extraFunctions.lua"))()
+--loadstring(game:HttpGet("https://raw.githubusercontent.com/adamMasMusic/ERX/refs/heads/main/structure.lua"))()
+
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local userInputService = game:GetService("UserInputService")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local lighting = game:GetService("Lighting")
+local guiService = game:GetService("GuiService")
 
 repeat task.wait() until _G.ExtraFuctions and _G.WindUI and _G.ERXStructure
 
@@ -187,8 +198,107 @@ local function carBounce(dt)
     local offset = (t < 0.5 and t * 2 or (1 - t) * 2) * _G.carBounceHeight
 
     for _, wheel in car.Wheels:GetChildren() do
-        _G.Functions.applyAxleOffset(wheel, { Y = -offset - _G.carBounceStart })
+        if _G.carBounceInverted then
+            _G.Functions.applyAxleOffset(wheel, { Y = offset - _G.carBounceStart })
+        else
+            _G.Functions.applyAxleOffset(wheel, { Y = -offset - _G.carBounceStart })
+        end
     end
+end
+
+local invertConns = {}
+local invertCar = nil
+
+local function cleanupInvertConns()
+    for _, data in pairs(invertConns) do
+        if data.conn then data.conn:Disconnect() end
+    end
+    invertConns = {}
+    invertCar = nil
+end
+
+local function setupInvertForCar()
+    cleanupInvertConns()
+    local car = _G.Functions.getPlayerCar()
+    if not car or not car:FindFirstChild("Wheels") then return end
+    invertCar = car
+    for _, wheel in car.Wheels:GetChildren() do
+        if wheel:IsA("BasePart") then
+            local av = wheel:FindFirstChild("#AV")
+            if av then
+                local data = { ignoring = false }
+                data.conn = av:GetPropertyChangedSignal("AngularVelocity"):Connect(function()
+                    if not _G.invertWheelSpeed or data.ignoring then return end
+                    data.ignoring = true
+                    av.AngularVelocity = -av.AngularVelocity
+                    data.ignoring = false
+                end)
+                table.insert(invertConns, data)
+            end
+        end
+    end
+end
+
+local function findWSManager()
+    local found = {}
+    for _, obj in getgc(true) do
+        if type(obj) == "table" and rawget(obj, "activeLayers") ~= nil then
+            local ok, mt = pcall(getrawmetatable, obj)
+            if ok and type(mt) == "table" and type(rawget(mt, "removeLayer")) == "function"
+                and type(rawget(mt, "getLayerById")) == "function"
+                and type(rawget(mt, "addLayer")) == "function"
+            then
+                table.insert(found, obj)
+            end
+        end
+    end
+    return found
+end
+
+local function exitModShop()
+    if not lp.PlayerGui:FindFirstChild("ModShopUI") then return end
+    local g = getrenv()._G
+    guiService.TouchControlsEnabled = true
+    g.InModShop = false
+    g.InMenu = nil
+    lp.Character.HumanoidRootPart.Anchored = false
+    local managers = findWSManager()
+    for _, manager in managers do
+        for _, layer in manager.activeLayers do
+            if layer.id == "ModShop" then
+                manager:removeLayer("ModShop")
+                break
+            end
+        end
+    end
+    replicatedStorage.FE:WaitForChild("ExitModShop"):FireServer(nil, { Accessories = {}, Texture = "Standard" })
+    lp.PlayerGui.ModShopUI.FinishedModifying:Fire()
+    task.wait(0.2)
+    lp.PlayerGui.GameGui.Enabled = true
+    lp.PlayerGui.GameMenus.Enabled = true
+    g.SetBackpackEnabled(true)
+    workspace.CurrentCamera.CameraType = "Custom"
+	workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid
+	workspace.CurrentCamera.FieldOfView = 70
+    if workspace.LoadedInteriors:FindFirstChild("ModShop") then
+		workspace.LoadedInteriors.ModShop:Destroy()
+	end
+	if workspace.LoadedInteriors:FindFirstChild("ModShopPlayerHolder") then
+		workspace.LoadedInteriors.ModShopPlayerHolder:Destroy()
+	end
+end
+
+local function quickRepairCar()
+    if not _G.Functions.isPlayerInOwnCar() then return end
+    local car = _G.Functions.getPlayerCar()
+    local old = car:GetPivot()
+    car:PivotTo(CFrame.new(-673, 25, 157))
+    repeat task.wait() until getrenv()._G.InModShop == true
+    print(replicatedStorage.FE:WaitForChild("ModShop"):InvokeServer(car.Name, "RepairVehicle"))
+    exitModShop()
+    repeat task.wait() until _G.Functions.isDriving() and _G.Functions.isPlayerInOwnCar()
+    car = _G.Functions.getPlayerCar()
+    car:PivotTo(old)
 end
 
 local carFlyToggle = carModsTab:Toggle({
@@ -315,6 +425,15 @@ local carBounceToggle = carModsTab:Toggle({
     end
 })
 
+_G.carBounceInverted = false
+local carBounceToggle = carModsTab:Toggle({
+    Title = "Invert Car Bounce",
+    Default = false,
+    Callback = function(state)
+        _G.carBounceInverted = state
+    end
+})
+
 _G.carBounceHeight = 3
 local carBounceHeightSlider = carModsTab:Slider({
     Title = "Car bounce height",
@@ -322,8 +441,8 @@ local carBounceHeightSlider = carModsTab:Slider({
     Step = 0.2,
     Value = {
         Min = 0,
-        Max = 20,
-        Default = 3,
+        Max = 30,
+        Default = 1,
     },
     Callback = function(value)
         _G.carBounceHeight = value
@@ -353,8 +472,8 @@ local carBounceStartSlider = carModsTab:Slider({
     Desc = "Basically ride height but for bounce",
     Step = 0.1,
     Value = {
-        Min = -20,
-        Max = 20,
+        Min = -30,
+        Max = 30,
         Default = 0,
     },
     Callback = function(value)
@@ -390,8 +509,8 @@ local rideHeight = carModsTab:Slider({
     Desc = "Modifies the wheels for a custom ride height offset",
     Step = 0.1,
     Value = {
-        Min = -2,
-        Max = 20,
+        Min = -30,
+        Max = 30,
         Default = 0,
     },
     Callback = function(value)
@@ -421,6 +540,303 @@ local wheelWidth = carModsTab:Slider({
     end,
 })
 
+local rideHeightFL = carModsTab:Slider({
+    Title = "Ride height front left",
+    Step = 0.1,
+    Value = {
+        Min = -30,
+        Max = 30,
+        Default = 0,
+    },
+    Callback = function(value)
+        local car = _G.Functions.getPlayerCar()
+        if not car then return end
+        for _, wheel in car.Wheels:GetChildren() do
+            if wheel.Name == "FL" then
+                _G.Functions.applyAxleOffset(wheel, {Y = -value})
+            end
+        end
+    end,
+})
+
+local rideHeightFR = carModsTab:Slider({
+    Title = "Ride height front right",
+    Step = 0.1,
+    Value = {
+        Min = -30,
+        Max = 30,
+        Default = 0,
+    },
+    Callback = function(value)
+        local car = _G.Functions.getPlayerCar()
+        if not car then return end
+        for _, wheel in car.Wheels:GetChildren() do
+            if wheel.Name == "FR" then
+                _G.Functions.applyAxleOffset(wheel, {Y = -value})
+            end
+        end
+    end,
+})
+
+local rideHeightRL = carModsTab:Slider({
+    Title = "Ride height rear left",
+    Step = 0.1,
+    Value = {
+        Min = -30,
+        Max = 30,
+        Default = 0,
+    },
+    Callback = function(value)
+        local car = _G.Functions.getPlayerCar()
+        if not car then return end
+        for _, wheel in car.Wheels:GetChildren() do
+            if wheel.Name == "RL" then
+                _G.Functions.applyAxleOffset(wheel, {Y = -value})
+            end
+        end
+    end,
+})
+
+local rideHeightRR = carModsTab:Slider({
+    Title = "Ride height rear right",
+    Step = 0.1,
+    Value = {
+        Min = -30,
+        Max = 30,
+        Default = 0,
+    },
+    Callback = function(value)
+        local car = _G.Functions.getPlayerCar()
+        if not car then return end
+        for _, wheel in car.Wheels:GetChildren() do
+            if wheel.Name == "RR" then
+                _G.Functions.applyAxleOffset(wheel, {Y = -value})
+            end
+        end
+    end,
+})
+
+local carFlySection = carModsTab:Section({
+    Title = "Utility",
+})
+
+_G.deadDrive = false
+local deadDriveToggle = carModsTab:Toggle({
+    Title = "Dead drive",
+    Desc = "Drive the car when it breaks or you die",
+    Default = false,
+    Callback = function(state)
+        _G.deadDrive = state
+    end
+})
+CarModsConfig:Register("deadDriveToggle", deadDriveToggle)
+
+local flipCar = carModsTab:Button({
+	Title = "Fix car",
+	Desc = "Fixes your car by using the mod shop",
+	Locked = false,
+	Callback = function()
+        if not lp:FindFirstChild("Is_Wanted") and _G.Functions.isDriving() and _G.Functions.isPlayerInOwnCar() then
+            quickRepairCar()
+        else
+            _G.Functions.notif("Car mods", "You are wanted!")
+        end
+	end
+})
+
+local carFlySection = carModsTab:Section({
+    Title = "Trolling",
+})
+
+--[[_G.earRapePlayerSelected = nil
+local earRapePlayerDropdown = carModsTab:Dropdown({
+    Title = "Earape Player",
+    Desc = "Select what player to earrape",
+    Values = {},
+    Value = nil,
+    AllowNone = true,
+    Callback = function(option) 
+        _G.earRapePlayerSelected = option
+    end
+})
+
+_G.earRapePlayer = false
+local earRapePlayerToggle = carModsTab:Toggle({
+    Title = "Earrape Player",
+    Desc = "This shit dont work basically but its here (you gotta be close to the player use fly and not move)",
+    Default = false,
+    Callback = function(state)
+        _G.earRapePlayer = state
+    end
+})
+
+local tempPlayers = {}
+for _, player in players:GetChildren() do
+    if player.Name ~= lp.Name then
+        table.insert(tempPlayers, player.Name)
+    end
+end
+earRapePlayerDropdown:Refresh(tempPlayers)]]
+
+local carFlySection = carModsTab:Section({
+    Title = "Random",
+})
+
+local invertWheelSpeedToggle = carModsTab:Toggle({
+    Title = "Invert drive directions",
+    Desc = "Forward becomes reverse",
+    Default = false,
+    Callback = function(state)
+        _G.invertWheelSpeed = state
+        if state then
+            setupInvertForCar()
+            workspace.CurrentCamera.CameraSubject = _G.Functions.getChar()
+        else
+            cleanupInvertConns()
+        end
+    end
+})
+
+local flipCar = carModsTab:Button({
+	Title = "Drive car upside down",
+	Desc = "Flips your car and puts your wheels above it to drive upside down",
+	Locked = false,
+	Callback = function()
+		if not _G.Functions.isDriving() then return end
+        local car = _G.Functions.getPlayerCar()
+
+        local pos = car:GetPivot() * CFrame.new(0, 22, 0) * CFrame.Angles(0, math.pi, math.pi)
+        _G.Functions.makeWeightlessCar(true)
+
+        for _, wheel in car.Wheels:GetChildren() do
+            wheel.CanCollide = false
+        end
+        car:PivotTo(pos)
+        rideHeight:Set(-15)
+        for _ = 1, 120 do
+            car:PivotTo(pos)
+            task.wait()
+        end
+        for _, wheel in car.Wheels:GetChildren() do
+            wheel.CanCollide = true
+        end
+        workspace.CurrentCamera.CameraSubject = _G.Functions.getChar()
+        game:GetService("ReplicatedStorage"):WaitForChild("FE"):WaitForChild("ChangeClientSetting"):InvokeServer("AutoCarFlipSetting", false)
+        _G.Functions.invertSteering()
+        invertWheelSpeedToggle:Set(true)
+	end
+})
+
+local flipped = false
+local previousFlipCar = nil
+local swapWheels = carModsTab:Button({
+	Title = "Swap front and rear wheels",
+	Locked = false,
+	Callback = function()
+		if not _G.Functions.isPlayerInOwnCar() then return end
+        local car = _G.Functions.getPlayerCar()
+
+        local pos = car:GetPivot()
+
+        flipped = not flipped
+        if previousFlipCar ~= car then
+            flipped = false
+        end
+        previousFlipCar = car
+
+        if car.Wheels:FindFirstChild("FL") and car.Wheels:FindFirstChild("RL") then
+            local a = (car.Wheels.FL.Position - car.Wheels.RL.Position).Magnitude
+            if flipped then
+                _G.Functions.applyAxleOffset(car.Wheels.FL, {Z = 0})
+                _G.Functions.applyAxleOffset(car.Wheels.RL, {Z = 0})
+            else
+                _G.Functions.applyAxleOffset(car.Wheels.FL, {Z = a})
+                _G.Functions.applyAxleOffset(car.Wheels.RL, {Z = -a})
+            end
+        end
+        if car.Wheels:FindFirstChild("FR") and car.Wheels:FindFirstChild("RR") then
+            local a = (car.Wheels.FL.Position - car.Wheels.RL.Position).Magnitude
+            if flipped then
+                _G.Functions.applyAxleOffset(car.Wheels.FR, {Z = 0})
+                _G.Functions.applyAxleOffset(car.Wheels.RR, {Z = 0})
+            else
+                _G.Functions.applyAxleOffset(car.Wheels.FR, {Z = a})
+                _G.Functions.applyAxleOffset(car.Wheels.RR, {Z = -a})
+            end
+        end
+        car:PivotTo(pos)
+	end
+})
+
+local tricycle = carModsTab:Button({
+	Title = "Make your car a threewheeler",
+	Desc = "Merges the front wheels",
+	Locked = false,
+	Callback = function()
+		if not _G.Functions.isDriving() then return end
+        local car = _G.Functions.getPlayerCar()
+
+        if car.Wheels:FindFirstChild("FL") and car.Wheels:FindFirstChild("FR") then
+            local a = (car.Wheels.FL.Position - car.Wheels.FR.Position).Magnitude
+            if flipped then
+                _G.Functions.applyAxleOffset(car.Wheels.FL, {X = 0})
+                _G.Functions.applyAxleOffset(car.Wheels.FR, {X = 0})
+            else
+                _G.Functions.applyAxleOffset(car.Wheels.FL, {X = -(a/2)})
+                _G.Functions.applyAxleOffset(car.Wheels.FR, {X = -(a/2)})
+            end
+        end
+	end
+})
+
+local previousWeightless = false
+local previousWeightlessCar = nil
+local makeWeightless = carModsTab:Button({
+	Title = "Makes your car weightless",
+	Desc = "Usefull if you want really tall ride height since it makes it hard to flip",
+	Locked = false,
+	Callback = function()
+		if not _G.Functions.isDriving() then return end
+        local car = _G.Functions.getPlayerCar()
+
+        if previousWeightlessCar == car and previousWeightless then
+            _G.Functions.makeWeightlessCar(false)
+        elseif previousWeightlessCar == car and not previousWeightless then
+            _G.Functions.makeWeightlessCar(true)
+        else
+            previousWeightlessCar = nil
+            _G.Functions.makeWeightlessCar(true)
+        end
+        previousWeightlessCar = car
+        previousWeightless = not previousWeightless
+	end
+})
+
+local invertSteering = carModsTab:Button({
+	Title = "Invert steering",
+	Locked = false,
+	Callback = function()
+		_G.Functions.invertSteering()
+	end,
+})
+
+local flipCarInPlace = carModsTab:Button({
+	Title = "Flip car",
+	Locked = false,
+	Callback = function()
+		if not _G.Functions.isDriving() then return end
+        local car = _G.Functions.getPlayerCar()
+
+        local pivot = car:GetPivot()
+        local newPos = pivot.Position + Vector3.new(0, 5, 0)
+        car:PivotTo(CFrame.new(newPos) * (pivot - pivot.Position) * CFrame.Angles(0, 0, math.pi))
+	end,
+})
+
+local carFlySection = carModsTab:Section({
+    Title = "Other",
+})
+
 local saveConfig = carModsTab:Button({
 	Title = "Save Config",
 	Desc = "Saves your config so it can be loaded next time",
@@ -446,6 +862,55 @@ userInputService.InputEnded:Connect(function(input: InputObject)
     if keys[key] ~= nil then keys[key] = false end
 end)
 
+local lastDriving = 0
+local debounce = false
+runService.Heartbeat:Connect(function()
+    local char = _G.Functions.getChar()
+    local car = _G.Functions.getPlayerCar()
+    if not car or not char:FindFirstChild("Humanoid") then return end
+    if _G.deadDrive and not debounce and (os.time() - lastDriving) < 2 and char.Humanoid.Health <= 0.2 and not _G.Functions.isPlayerInOwnCar() then
+        debounce = true
+        repeat task.wait() until char.Humanoid.SeatPart == nil
+        task.wait(0.5)
+        car.DriverSeat:Sit(char.Humanoid)
+        for _, part in char:GetChildren() do
+            if part:IsA("BasePart") and string.find(part.Name, "Leg") then
+                part.CanCollide = false
+            end
+        end
+    end
+    if _G.deadDrive and car:FindFirstChild("Control_Values") and car.Control_Values.Health.Value <= 0 then
+        car.Control_Values.Health.Value = 69
+    end
+    if _G.Functions.isDriving() then
+        lastDriving = os.time()
+        debounce = false
+    end
+    if _G.deadDrive then
+        if lighting.HealthBlur.Enabled then
+            lighting.HealthBlur.Enabled = false
+        end
+        if lighting.HealthColor.Enabled then
+            lighting.HealthColor.Enabled = false
+        end
+        if lp.PlayerGui.GameGui.HealthDamage.Visible then
+            lp.PlayerGui.GameGui.HealthDamage.Visible = false
+        end
+    end
+end)
+
+runService.Heartbeat:Connect(function()
+    if not _G.invertWheelSpeed then return end
+    local car = _G.Functions.getPlayerCar()
+    if car ~= invertCar then
+        if car and _G.Functions.isDriving() then
+            setupInvertForCar()
+        else
+            cleanupInvertConns()
+        end
+    end
+end)
+
 runService.Heartbeat:Connect(function(dt: number)
     if _G.carFlyEnabled then
         controlledFly(dt)
@@ -453,4 +918,46 @@ runService.Heartbeat:Connect(function(dt: number)
     if _G.carBounceEnabled then
         carBounce(dt)
     end
+    if _G.earRapePlayer and _G.earRapePlayerSelected and players:FindFirstChild(_G.earRapePlayerSelected) and _G.Functions.isDriving() then
+        local car = _G.Functions.getPlayerCar()
+        if not car:FindFirstChild("Wheels") then return end
+        local remote = car:FindFirstChild("Input_Events"):FindFirstChild("Drift")
+        local target = players:FindFirstChild(_G.earRapePlayerSelected)
+        local targetCharacter = target.Character
+        if _G.earRapePlayerAllWheels then
+            for _, wheel in car.Wheels:GetChildren() do
+                wheel.Arm:PivotTo(targetCharacter:GetPivot())
+                --_G.Functions.setWheelWorldPosition(wheel, targetCharacter:GetPivot().Position)
+                wheel.CanCollide = false
+            end
+        else
+            _G.Functions.setWheelWorldPosition(car.Wheels.FR, targetCharacter:GetPivot().Position)
+            for _, wheel in car.Wheels:GetChildren() do
+                if wheel.Name == "FR" then
+                    wheel.CanCollide = false
+                else
+                    wheel.CanCollide = true
+                end
+            end
+            car.Wheels.FR.CanCollide = false
+        end
+        if remote then
+            remote:FireServer(math.huge, math.huge)
+        end
+    end
 end)
+
+--[[local function updateEarrapePlayers()
+    local tempPlayers = {}
+    for _, player in players:GetChildren() do
+        if player.Name ~= lp.Name then
+            table.insert(tempPlayers, player.Name)
+        end
+    end
+    earRapePlayerDropdown:Refresh(tempPlayers)
+end
+
+players.ChildAdded:Connect(updateEarrapePlayers)
+players.ChildRemoved:Connect(updateEarrapePlayers)]]
+
+_G.carMods = true
