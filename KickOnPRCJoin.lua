@@ -1,3 +1,4 @@
+warn("autokick") -- turn red errors erlc can dtc warns and prints js doing this for now to remember i have it on l8r
 _G.userIDs = {16222847, 23665982, 387574627, 500161865}
 
 local Players = game:GetService("Players")
