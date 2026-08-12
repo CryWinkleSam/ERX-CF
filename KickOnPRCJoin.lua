@@ -7,7 +7,7 @@ local lp = Players.LocalPlayer
 if _G.Functions and _G.Connections and _G.Connections.OnPRCStaffJoin then
     _G.Connections.OnPRCStaffJoin.Event:Connect(function(Info)
         local name = Info.Player and Info.Player.Name or "?"
-        lp:Kick("!PRC Mod! joined you, Name: " .. name)
+        lp:Kick("PRC Mod! joined you, Name: " .. name)
     end)
 end
 
