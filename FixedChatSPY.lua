@@ -1,4 +1,3 @@
--- its okay to use chatgpt some times
 cloneref = cloneref or function(A)
 	return A
 end
@@ -30,7 +29,7 @@ ListenToUnview = ListenToUnview or {}
 FakeCallsListenTO = FakeCallsListenTO or {}
 
 -- ============================================================
--- CHAT HANDLER
+-- CHAT CHANNEL
 -- ============================================================
 
 local GeneralChannel =
@@ -41,12 +40,45 @@ if not GeneralChannel then
 	return
 end
 
+-- ============================================================
+-- PLAYER LOOKUP
+-- ============================================================
+
+local function GetTargetPlayer(targetName)
+	if not targetName then
+		return nil
+	end
+
+	targetName = tostring(targetName):lower()
+
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+		local username = targetPlayer.Name:lower()
+		local displayName = targetPlayer.DisplayName:lower()
+
+		if targetName == "all"
+			or username:sub(1, #targetName) == targetName
+			or displayName:sub(1, #targetName) == targetName
+		then
+			return targetPlayer
+		end
+	end
+
+	return nil
+end
+
+-- ============================================================
+-- CHAT HANDLER
+-- ============================================================
+
 GeneralChannel.MessageReceived:Connect(function(k)
 	if not k or not k.TextSource then
 		return
 	end
 
-	-- Get the player who sent the message.
+	-- ========================================================
+	-- GET ACTUAL PLAYER FROM MESSAGE
+	-- ========================================================
+
 	local player =
 		Players:GetPlayerByUserId(k.TextSource.UserId)
 
@@ -62,43 +94,59 @@ GeneralChannel.MessageReceived:Connect(function(k)
 		return
 	end
 
+	local Said = args[1] and tostring(args[1]):lower()
+
+	if not Said then
+		return
+	end
+
 	-- ========================================================
-	-- COMMAND
+	-- :KL
 	-- ========================================================
 
-	if args[1] then
-		local Said = tostring(args[1]):lower()
-
-		-- ====================================================
-		-- :KL
-		-- ====================================================
-		-- No target is needed.
-		-- Example: Player says ":kl"
-		-- ====================================================
-
-		if Said == ":kl" then
-			if _G.AdminLogs then
-				_G.PushNotification(
-					"Yellow",
-					PlayerName .. " Checked kill logs!"
-				)
-			end
-
-			CustomConnections.OnCMDUsed:Fire({
-				Command = Said,
-				UsedOn = PlayerName
-			})
-
-			return
+	if Said == ":kl" then
+		if _G.AdminLogs then
+			_G.PushNotification(
+				"Yellow",
+				PlayerName .. " Checked kill logs!"
+			)
 		end
 
+		CustomConnections.OnCMDUsed:Fire({
+			Command = Said,
+			UsedOn = PlayerName
+		})
+
+		return
+	end
+
+	-- ========================================================
+	-- :VIEW
+	--
+	-- IMPORTANT:
+	-- There is NO :unview command.
+	--
+	-- :view Target
+	--     -> starts viewing Target
+	--
+	-- :view
+	--     -> if this same moderator is already viewing us,
+	--        clear their view state
+	--
+	-- :view DifferentTarget
+	--     -> if this same moderator is already viewing us,
+	--        ALSO clear their view state
+	--
+	-- Only the SAME moderator can clear their own state.
+	-- ========================================================
+
+	if Said == ":view" then
+
 		-- ====================================================
-		-- :VIEW / :UNVIEW
+		-- SAME MODERATOR IS ALREADY VIEWING US
 		-- ====================================================
 
-		if ListenToUnview[PlayerName]
-			and (Said == ":view" or Said == ":unview")
-		then
+		if ListenToUnview[PlayerName] then
 			ListenToUnview[PlayerName] = nil
 
 			WindUI:Notify({
@@ -111,7 +159,7 @@ GeneralChannel.MessageReceived:Connect(function(k)
 
 			_G.PushNotification(
 				"Yellow",
-				"You are currently being viewed by "
+				"You are no longer being viewed by "
 					.. PlayerName,
 				true,
 				false
@@ -120,248 +168,261 @@ GeneralChannel.MessageReceived:Connect(function(k)
 			CustomConnections.OnStaffUnview:Fire({
 				PlayerName = PlayerName
 			})
+
+			return
 		end
 
 		-- ====================================================
-		-- TARGET COMMANDS
+		-- NO TARGET
+		--
+		-- If the moderator wasn't already viewing us,
+		-- plain :view does nothing.
 		-- ====================================================
 
-		if args[2] then
-			local targetName = tostring(args[2]):lower()
+		if not args[2] then
+			return
+		end
 
-			for _, targetPlayer in ipairs(Players:GetPlayers()) do
-				local username = targetPlayer.Name:lower()
-				local displayName = targetPlayer.DisplayName:lower()
+		-- ====================================================
+		-- TARGETED :VIEW
+		-- ====================================================
 
-				local matches =
-					targetName == "all"
-					or username:sub(1, #targetName) == targetName
-					or displayName:sub(1, #targetName) == targetName
+		local targetPlayer = GetTargetPlayer(args[2])
 
-				if matches then
-					if _G.AdminLogs then
+		if not targetPlayer then
+			return
+		end
 
-						-- ========================================
-						-- :VIEW
-						-- ========================================
+		if not _G.AdminLogs then
+			return
+		end
 
-						if Said == ":view" then
-							if targetPlayer ~= LocalPlayer then
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " is now viewing: "
-										.. targetPlayer.Name
-								)
+		-- ====================================================
+		-- THEY ARE VIEWING SOMEONE ELSE
+		-- ====================================================
 
-								ListenToUnview[PlayerName] = nil
-							else
-								WindUI:Notify({
-									Title = "Mod Alerts",
-									Content =
-										"You Are Being Viewed by "
-										.. PlayerName,
-									Duration = 25,
-								})
+		if targetPlayer ~= LocalPlayer then
+			_G.PushNotification(
+				"Yellow",
+				PlayerName
+					.. " is now viewing: "
+					.. targetPlayer.Name
+			)
 
-								_G.PushNotification(
-									"Yellow",
-									"You are currently being viewed by "
-										.. PlayerName,
-									true,
-									true
-								)
+			return
+		end
 
-								ListenToUnview[PlayerName] = true
+		-- ====================================================
+		-- THEY ARE VIEWING US
+		-- ====================================================
 
-								if _G.ViewAction
-									and _G.SelectedViewAction
-								then
-									if _G.SelectedViewAction == "Kill" then
-										EnviromentRemote:FireServer(
-											math.random(100, 200)
-										)
+		ListenToUnview[PlayerName] = true
 
-									elseif _G.SelectedViewAction == "Respawn" then
-										Functions:Respawn()
+		WindUI:Notify({
+			Title = "Mod Alerts",
+			Content =
+				"You Are Being Viewed by "
+				.. PlayerName,
+			Duration = 25,
+		})
 
-									elseif _G.SelectedViewAction == "Fling" then
-										if Functions:IsDisablerOn() then
-											Humanoid.Sit = true
-											task.wait()
-											Humanoid.Sit = false
-										end
+		_G.PushNotification(
+			"Yellow",
+			"You are currently being viewed by "
+				.. PlayerName,
+			true,
+			true
+		)
 
-										while _G.YieldFling do
-											task.wait()
-										end
+		CustomConnections.OnLocalPlayerViewed:Fire({
+			PlayerName = PlayerName
+		})
 
-										HumanoidRootPart.Velocity =
-											Vector3.new(1e3, 1e3, 1e4)
-									end
-								end
+		return
+	end
 
-								CustomConnections.OnLocalPlayerViewed:Fire({
-									PlayerName = PlayerName
-								})
-							end
+	-- ========================================================
+	-- TARGET COMMANDS
+	-- ========================================================
 
-						-- ========================================
-						-- :TO
-						-- ========================================
+	if args[2] then
+		local targetPlayer = GetTargetPlayer(args[2])
 
-						elseif Said == ":to" then
-							if targetPlayer ~= LocalPlayer then
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Teleported to: "
-										.. targetPlayer.Name
-								)
-							else
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Teleported to you"
-								)
-							end
+		if targetPlayer and _G.AdminLogs then
 
-							FakeCallsListenTO[PlayerName] = nil
+			-- ================================================
+			-- :TO
+			-- ================================================
 
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
+			if Said == ":to" then
 
-						-- ========================================
-						-- :BRING
-						-- ========================================
-
-						elseif Said == ":bring" then
-							if targetPlayer ~= LocalPlayer then
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Brought: "
-										.. targetPlayer.Name
-								)
-							else
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Brought U to them"
-								)
-							end
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-
-						-- ========================================
-						-- :KILL
-						-- ========================================
-
-						elseif Said == ":kill" then
-							if targetPlayer ~= LocalPlayer then
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Killed: "
-										.. targetPlayer.Name
-								)
-							else
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Killed u"
-								)
-							end
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-
-						-- ========================================
-						-- :HEAL
-						-- ========================================
-
-						elseif Said == ":heal" then
-							if targetPlayer ~= LocalPlayer then
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Healed: "
-										.. targetPlayer.Name
-								)
-							else
-								_G.PushNotification(
-									"Yellow",
-									PlayerName
-										.. " Healed you"
-								)
-							end
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-
-						-- ========================================
-						-- :KICK
-						-- ========================================
-
-						elseif Said == ":kick" then
-							_G.PushNotification(
-								"Yellow",
-								PlayerName
-									.. " Kicked: "
-									.. targetPlayer.Name
-							)
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-
-						-- ========================================
-						-- :BAN
-						-- ========================================
-
-						elseif Said == ":ban" then
-							_G.PushNotification(
-								"Yellow",
-								PlayerName
-									.. " Banned: "
-									.. targetPlayer.Name
-							)
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-
-						-- ========================================
-						-- :LOGS
-						-- ========================================
-
-						elseif Said == ":logs" then
-							_G.PushNotification(
-								"Yellow",
-								PlayerName
-									.. " Is viewing cmd logs"
-							)
-
-							CustomConnections.OnCMDUsed:Fire({
-								Command = Said,
-								UsedOn = PlayerName
-							})
-						end
-
-						return
-					end
+				if targetPlayer ~= LocalPlayer then
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Teleported to: "
+							.. targetPlayer.Name
+					)
+				else
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Teleported to you"
+					)
 				end
+
+				FakeCallsListenTO[PlayerName] = nil
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :BRING
+			-- ================================================
+
+			elseif Said == ":bring" then
+
+				if targetPlayer ~= LocalPlayer then
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Brought: "
+							.. targetPlayer.Name
+					)
+				else
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Brought U to them"
+					)
+				end
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :KILL
+			--
+			-- This is ONLY logging the command:
+			-- :kill PlayerName
+			-- ================================================
+
+			elseif Said == ":kill" then
+
+				if targetPlayer ~= LocalPlayer then
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Killed: "
+							.. targetPlayer.Name
+					)
+				else
+					_G.PushNotification(
+						"Yellow",
+						PlayerName .. " Killed u"
+					)
+				end
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :HEAL
+			-- ================================================
+
+			elseif Said == ":heal" then
+
+				if targetPlayer ~= LocalPlayer then
+					_G.PushNotification(
+						"Yellow",
+						PlayerName
+							.. " Healed: "
+							.. targetPlayer.Name
+					)
+				else
+					_G.PushNotification(
+						"Yellow",
+						PlayerName .. " Healed you"
+					)
+				end
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :KICK
+			-- ================================================
+
+			elseif Said == ":kick" then
+
+				_G.PushNotification(
+					"Yellow",
+					PlayerName
+						.. " Kicked: "
+						.. targetPlayer.Name
+				)
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :BAN
+			-- ================================================
+
+			elseif Said == ":ban" then
+
+				_G.PushNotification(
+					"Yellow",
+					PlayerName
+						.. " Banned: "
+						.. targetPlayer.Name
+				)
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
+
+			-- ================================================
+			-- :LOGS
+			-- ================================================
+
+			elseif Said == ":logs" then
+
+				_G.PushNotification(
+					"Yellow",
+					PlayerName
+						.. " Is viewing cmd logs"
+				)
+
+				CustomConnections.OnCMDUsed:Fire({
+					Command = Said,
+					UsedOn = PlayerName
+				})
+
+				return
 			end
 		end
 	end
@@ -371,6 +432,7 @@ GeneralChannel.MessageReceived:Connect(function(k)
 	-- ============================================================
 
 	if Message == "!mod" or Message == "!help" then
+
 		if _G.AdminLogs then
 			_G.PushNotification(
 				"Red",
@@ -379,6 +441,7 @@ GeneralChannel.MessageReceived:Connect(function(k)
 		end
 
 		if _G.DisplayModCalls then
+
 			FakeCallsListenTO[PlayerName] = true
 
 			task.delay(200, function()
@@ -431,4 +494,3 @@ GeneralChannel.MessageReceived:Connect(function(k)
 		)
 	end
 end)
-
