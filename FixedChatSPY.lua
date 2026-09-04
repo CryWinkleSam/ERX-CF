@@ -20,6 +20,8 @@ local WindUI = _G.WindUI
 local Window = _G.Window
 local Tabs = _G.Tabs
 
+warn("CFSPY")
+
 -- ============================================================
 -- INITIALIZE TABLES
 -- ============================================================
