@@ -80,7 +80,7 @@ GeneralChannel.MessageReceived:Connect(function(k)
 			if _G.AdminLogs then
 				_G.PushNotification(
 					"Yellow",
-					PlayerName .. " Is viewing kill logs"
+					PlayerName .. " Checked kill logs!"
 				)
 			end
 
