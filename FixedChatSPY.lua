@@ -1,4 +1,4 @@
-cloneref = cloneref or function(A)
+--[[cloneref = cloneref or function(A)
 	return A
 end
 
@@ -495,4 +495,4 @@ GeneralChannel.MessageReceived:Connect(function(k)
 	end
 end)
 
-warn("_ _")
+warn("_ _")]]
