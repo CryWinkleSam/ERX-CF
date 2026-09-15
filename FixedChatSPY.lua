@@ -19,7 +19,7 @@ local WindUI = _G.WindUI
 local Window = _G.Window
 local Tabs = _G.Tabs
 
-warn("CFSPY_")
+warn("_")
 
 -- ============================================================
 -- INITIALIZE TABLES
@@ -494,3 +494,5 @@ GeneralChannel.MessageReceived:Connect(function(k)
 		)
 	end
 end)
+
+warn("_ _")
