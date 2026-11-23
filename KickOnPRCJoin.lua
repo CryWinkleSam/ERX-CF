@@ -1,6 +1,7 @@
 warn("autokick") -- turn red errors erlc can dtc warns and prints js doing this for now to remember i have it on l8r
 _G.userIDs = {16222847, 23665982, 387574627, 500161865}
-
+repeat task.wait() until _G.PRC_Kick
+-- yes this was js chatgpted bro
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
